@@ -1,0 +1,75 @@
+#ifndef RAI_ANTHROPIC_AGENT_H
+#define RAI_ANTHROPIC_AGENT_H
+
+#include <QJsonArray>
+#include <QObject>
+#include <QNetworkReply>
+
+#include "rai_anthropic_agent_settings.h"
+
+class QNetworkAccessManager;
+
+class RAnthropicAgent : public QObject
+{
+    Q_OBJECT
+
+    private:
+
+        //! Anthropic agent settings.
+        RAnthropicAgentSettings settings;
+
+        //! Network access manager.
+        QNetworkAccessManager *networkManager;
+
+        //! Current network reply.
+        QNetworkReply *networkReply;
+
+        //! Confirmed conversation turns sent to the API on every request.
+        QJsonArray conversationHistory;
+
+        //! Unique identifier for the current conversation session.
+        QString sessionId;
+
+        //! Message pending retry or in-flight.
+        QString pendingMessage;
+
+        //! Remaining retry attempts for current request.
+        int remainingRetries;
+
+        //! Build and dispatch the HTTP POST request.
+        void sendRequest(const QString &message);
+
+    public:
+
+        //! Constructor. Starts a new session automatically.
+        explicit RAnthropicAgent(const RAnthropicAgentSettings &settings, QObject *parent = nullptr);
+
+        //! Destructor.
+        ~RAnthropicAgent() override;
+
+        //! Return the current session identifier.
+        QString getSessionId() const;
+
+        //! Clear conversation history and assign a new session identifier.
+        void startNewSession();
+
+        //! Send a user message and asynchronously receive a response.
+        //! Previous turns in the session are included as context.
+        void chat(const QString &message);
+
+    signals:
+
+        //! Emitted when the assistant response has been received.
+        void responseReceived(const QString &response);
+
+        //! Emitted when the request fails and all retries are exhausted.
+        void errorOccurred(const QString &error);
+
+    private slots:
+
+        //! Called when the network reply has finished.
+        void onReplyFinished();
+
+};
+
+#endif // RAI_ANTHROPIC_AGENT_H

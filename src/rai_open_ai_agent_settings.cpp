@@ -1,8 +1,8 @@
-#include "rai_claude_agent_settings.h"
+#include "rai_open_ai_agent_settings.h"
 
-RClaudeAgentSettings::RClaudeAgentSettings()
-    : m_apiUrl(QStringLiteral("https://api.anthropic.com/v1/messages"))
-    , m_model(QStringLiteral("claude-sonnet-4-20250514"))
+ROpenAiAgentSettings::ROpenAiAgentSettings()
+    : m_apiUrl(QStringLiteral("https://api.openai.com/v1/chat/completions"))
+    , m_model(QStringLiteral("gpt-4o"))
     , m_temperature(1.0)
     , m_maxTokens(4096)
     , m_topP(1.0)
@@ -12,7 +12,7 @@ RClaudeAgentSettings::RClaudeAgentSettings()
 {
 }
 
-RClaudeAgentSettings::RClaudeAgentSettings(const RClaudeAgentSettings &other)
+ROpenAiAgentSettings::ROpenAiAgentSettings(const ROpenAiAgentSettings &other)
     : m_apiKey(other.m_apiKey)
     , m_apiUrl(other.m_apiUrl)
     , m_model(other.m_model)
@@ -29,7 +29,7 @@ RClaudeAgentSettings::RClaudeAgentSettings(const RClaudeAgentSettings &other)
 {
 }
 
-RClaudeAgentSettings &RClaudeAgentSettings::operator=(const RClaudeAgentSettings &other)
+ROpenAiAgentSettings &ROpenAiAgentSettings::operator=(const ROpenAiAgentSettings &other)
 {
     if (this != &other) {
         m_apiKey = other.m_apiKey;
@@ -49,136 +49,136 @@ RClaudeAgentSettings &RClaudeAgentSettings::operator=(const RClaudeAgentSettings
     return *this;
 }
 
-RClaudeAgentSettings::~RClaudeAgentSettings()
+ROpenAiAgentSettings::~ROpenAiAgentSettings()
 {
 }
 
-QString RClaudeAgentSettings::apiKey() const
+QString ROpenAiAgentSettings::apiKey() const
 {
     return m_apiKey;
 }
 
-void RClaudeAgentSettings::setApiKey(const QString &apiKey)
+void ROpenAiAgentSettings::setApiKey(const QString &apiKey)
 {
     m_apiKey = apiKey;
 }
 
-QString RClaudeAgentSettings::apiUrl() const
+QString ROpenAiAgentSettings::apiUrl() const
 {
     return m_apiUrl;
 }
 
-void RClaudeAgentSettings::setApiUrl(const QString &apiUrl)
+void ROpenAiAgentSettings::setApiUrl(const QString &apiUrl)
 {
     m_apiUrl = apiUrl;
 }
 
-QString RClaudeAgentSettings::model() const
+QString ROpenAiAgentSettings::model() const
 {
     return m_model;
 }
 
-void RClaudeAgentSettings::setModel(const QString &model)
+void ROpenAiAgentSettings::setModel(const QString &model)
 {
     m_model = model;
 }
 
-QString RClaudeAgentSettings::systemPrompt() const
+QString ROpenAiAgentSettings::systemPrompt() const
 {
     return m_systemPrompt;
 }
 
-void RClaudeAgentSettings::setSystemPrompt(const QString &systemPrompt)
+void ROpenAiAgentSettings::setSystemPrompt(const QString &systemPrompt)
 {
     m_systemPrompt = systemPrompt;
 }
 
-double RClaudeAgentSettings::temperature() const
+double ROpenAiAgentSettings::temperature() const
 {
     return m_temperature;
 }
 
-void RClaudeAgentSettings::setTemperature(double temperature)
+void ROpenAiAgentSettings::setTemperature(double temperature)
 {
     m_temperature = temperature;
 }
 
-int RClaudeAgentSettings::maxTokens() const
+int ROpenAiAgentSettings::maxTokens() const
 {
     return m_maxTokens;
 }
 
-void RClaudeAgentSettings::setMaxTokens(int maxTokens)
+void ROpenAiAgentSettings::setMaxTokens(int maxTokens)
 {
     m_maxTokens = maxTokens;
 }
 
-double RClaudeAgentSettings::topP() const
+double ROpenAiAgentSettings::topP() const
 {
     return m_topP;
 }
 
-void RClaudeAgentSettings::setTopP(double topP)
+void ROpenAiAgentSettings::setTopP(double topP)
 {
     m_topP = topP;
 }
 
-int RClaudeAgentSettings::timeout() const
+int ROpenAiAgentSettings::timeout() const
 {
     return m_timeout;
 }
 
-void RClaudeAgentSettings::setTimeout(int timeout)
+void ROpenAiAgentSettings::setTimeout(int timeout)
 {
     m_timeout = timeout;
 }
 
-QString RClaudeAgentSettings::proxyHost() const
+QString ROpenAiAgentSettings::proxyHost() const
 {
     return m_proxyHost;
 }
 
-void RClaudeAgentSettings::setProxyHost(const QString &proxyHost)
+void ROpenAiAgentSettings::setProxyHost(const QString &proxyHost)
 {
     m_proxyHost = proxyHost;
 }
 
-int RClaudeAgentSettings::proxyPort() const
+int ROpenAiAgentSettings::proxyPort() const
 {
     return m_proxyPort;
 }
 
-void RClaudeAgentSettings::setProxyPort(int proxyPort)
+void ROpenAiAgentSettings::setProxyPort(int proxyPort)
 {
     m_proxyPort = proxyPort;
 }
 
-QString RClaudeAgentSettings::proxyUser() const
+QString ROpenAiAgentSettings::proxyUser() const
 {
     return m_proxyUser;
 }
 
-void RClaudeAgentSettings::setProxyUser(const QString &proxyUser)
+void ROpenAiAgentSettings::setProxyUser(const QString &proxyUser)
 {
     m_proxyUser = proxyUser;
 }
 
-QString RClaudeAgentSettings::proxyPassword() const
+QString ROpenAiAgentSettings::proxyPassword() const
 {
     return m_proxyPassword;
 }
 
-void RClaudeAgentSettings::setProxyPassword(const QString &proxyPassword)
+void ROpenAiAgentSettings::setProxyPassword(const QString &proxyPassword)
 {
     m_proxyPassword = proxyPassword;
 }
 
-int RClaudeAgentSettings::retryCount() const
+int ROpenAiAgentSettings::retryCount() const
 {
     return m_retryCount;
 }
 
-void RClaudeAgentSettings::setRetryCount(int retryCount)
+void ROpenAiAgentSettings::setRetryCount(int retryCount)
 {
     m_retryCount = retryCount;
 }

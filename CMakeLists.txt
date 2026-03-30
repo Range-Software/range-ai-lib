@@ -1,21 +1,29 @@
-set(TARGET_NAME range-ai-lib)
+# Create a static library
+find_package(Qt6 REQUIRED COMPONENTS Core)
 
-set(SOURCES
-    src/rai_claude_agent.cpp
+qt_add_library(range-ai-lib
+    STATIC
+        src/rai_anthropic_agent.cpp
+        src/rai_anthropic_agent_settings.cpp
+        src/rai_open_ai_agent.cpp
+        src/rai_open_ai_agent_settings.cpp
+        include/rai_anthropic_agent.h
+        include/rai_anthropic_agent_settings.h
+        include/rai_open_ai_agent.h
+        include/rai_open_ai_agent_settings.h
 )
 
-set(HEADERS
-    include/rai_claude_agent.h
-)
-
-add_library(${TARGET_NAME} STATIC ${SOURCES} ${HEADERS})
-
-target_include_directories(${TARGET_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-
-target_link_libraries(${TARGET_NAME}
+# Include directories
+target_include_directories(range-ai-lib
     PUBLIC
-        Qt6::Core
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
+target_link_libraries(range-ai-lib
+    PUBLIC
+        range-base-lib
         Qt6::Network
         common_defines
-        range-base-lib
 )
+
+target_link_libraries(range-ai-lib PRIVATE Qt6::Core)
