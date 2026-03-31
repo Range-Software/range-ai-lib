@@ -1,12 +1,13 @@
-#ifndef RAI_OPEN_AI_AGENT_SETTINGS_H
-#define RAI_OPEN_AI_AGENT_SETTINGS_H
+#ifndef RAI_AGENT_SETTINGS_H
+#define RAI_AGENT_SETTINGS_H
 
 #include <QString>
 
-class ROpenAiAgentSettings
+class RAgentSettings
 {
 
     private:
+
         // API Settings
         QString m_apiKey;
         QString m_apiUrl;
@@ -28,10 +29,10 @@ class ROpenAiAgentSettings
 
     public:
 
-        ROpenAiAgentSettings();
-        ROpenAiAgentSettings(const ROpenAiAgentSettings &other);
-        ROpenAiAgentSettings &operator=(const ROpenAiAgentSettings &other);
-        ~ROpenAiAgentSettings();
+        RAgentSettings();
+        RAgentSettings(const RAgentSettings &other);
+        RAgentSettings &operator=(const RAgentSettings &other);
+        ~RAgentSettings();
 
         // API Settings
         QString apiKey() const;
@@ -75,6 +76,10 @@ class ROpenAiAgentSettings
         int retryCount() const;
         void setRetryCount(int retryCount);
 
+        static RAgentSettings defaultAnthropicSettings();
+
+        static RAgentSettings defaultOpenAiSettings();
+
 };
 
-#endif // RAI_OPEN_AI_AGENT_SETTINGS_H
+#endif // RAI_AGENT_SETTINGS_H

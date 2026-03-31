@@ -1,22 +1,33 @@
-#ifndef RAI_OPEN_AI_AGENT_H
-#define RAI_OPEN_AI_AGENT_H
+#ifndef RAI_AGENT_H
+#define RAI_AGENT_H
 
 #include <QJsonArray>
 #include <QObject>
 #include <QNetworkReply>
 
-#include "rai_open_ai_agent_settings.h"
+#include "rai_agent_settings.h"
 
 class QNetworkAccessManager;
 
-class ROpenAiAgent : public QObject
+class RAgent : public QObject
 {
     Q_OBJECT
 
+    public:
+
+        enum class Type
+        {
+            OpenAI,
+            Anthropic
+        };
+
     private:
 
-        //! OpenAI agent settings.
-        ROpenAiAgentSettings settings;
+        //! Agent type (e.g., OpenAI, Anthropic, Custom).
+        Type agentType;
+
+        //! Agent settings.
+        RAgentSettings settings;
 
         //! Network access manager.
         QNetworkAccessManager *networkManager;
@@ -42,10 +53,10 @@ class ROpenAiAgent : public QObject
     public:
 
         //! Constructor. Starts a new session automatically.
-        explicit ROpenAiAgent(const ROpenAiAgentSettings &settings, QObject *parent = nullptr);
+        explicit RAgent(const RAgentSettings &settings, QObject *parent = nullptr);
 
         //! Destructor.
-        ~ROpenAiAgent() override;
+        ~RAgent() override;
 
         //! Return the current session identifier.
         QString getSessionId() const;
@@ -72,4 +83,4 @@ class ROpenAiAgent : public QObject
 
 };
 
-#endif // RAI_OPEN_AI_AGENT_H
+#endif // RAI_AGENT_H

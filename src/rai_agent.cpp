@@ -1,4 +1,4 @@
-#include "rai_anthropic_agent.h"
+#include "rai_agent.h"
 
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -10,7 +10,7 @@
 
 #include "rbl_logger.h"
 
-RAnthropicAgent::RAnthropicAgent(const RAnthropicAgentSettings &settings, QObject *parent)
+RAgent::RAgent(const RAgentSettings &settings, QObject *parent)
     : QObject{parent}
     , settings{settings}
     , networkManager{new QNetworkAccessManager(this)}
@@ -27,7 +27,7 @@ RAnthropicAgent::RAnthropicAgent(const RAnthropicAgentSettings &settings, QObjec
             proxy.setPassword(settings.proxyPassword());
         }
         networkManager->setProxy(proxy);
-        RLogger::info("[RAnthropicAgent] Proxy configured: %s:%d\n",
+        RLogger::info("[RAgent] Proxy configured: %s:%d\n",
                       settings.proxyHost().toUtf8().constData(),
                       settings.proxyPort());
     }
@@ -36,7 +36,7 @@ RAnthropicAgent::RAnthropicAgent(const RAnthropicAgentSettings &settings, QObjec
     startNewSession();
 }
 
-RAnthropicAgent::~RAnthropicAgent()
+RAgent::~RAgent()
 {
     if (networkReply) {
         networkReply->abort();
@@ -44,28 +44,28 @@ RAnthropicAgent::~RAnthropicAgent()
     }
 }
 
-QString RAnthropicAgent::getSessionId() const
+QString RAgent::getSessionId() const
 {
     return sessionId;
 }
 
-void RAnthropicAgent::startNewSession()
+void RAgent::startNewSession()
 {
     sessionId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     conversationHistory = QJsonArray();
-    RLogger::info("[RAnthropicAgent] New session started: %s\n",
+    RLogger::info("[RAgent] New session started: %s\n",
                   sessionId.toUtf8().constData());
 }
 
-void RAnthropicAgent::chat(const QString &message)
+void RAgent::chat(const QString &message)
 {
     if (message.isEmpty()) {
-        RLogger::warning("[RAnthropicAgent] chat() called with an empty message.\n");
+        RLogger::warning("[RAgent] chat() called with an empty message.\n");
         return;
     }
 
     if (networkReply && networkReply->isRunning()) {
-        RLogger::warning("[RAnthropicAgent] A request is already in progress; ignoring new chat() call.\n");
+        RLogger::warning("[RAgent] A request is already in progress; ignoring new chat() call.\n");
         return;
     }
 
@@ -74,10 +74,32 @@ void RAnthropicAgent::chat(const QString &message)
     sendRequest(message);
 }
 
-void RAnthropicAgent::sendRequest(const QString &message)
+void RAgent::sendRequest(const QString &message)
 {
-    // Build messages array: confirmed history + current user turn
-    QJsonArray messages = conversationHistory;
+    QJsonArray messages;
+
+    if (agentType == RagentType::OpenAI)
+    {
+        // Build messages array: optional system prompt + confirmed history + current user turn.
+        // The OpenAI API carries the system prompt as a message with role "system".
+
+        if (!settings.systemPrompt().isEmpty()) {
+            QJsonObject systemMessage;
+            systemMessage[QStringLiteral("role")]    = QStringLiteral("system");
+            systemMessage[QStringLiteral("content")] = settings.systemPrompt();
+            messages.append(systemMessage);
+        }
+
+        for (const QJsonValue &entry : std::as_const(conversationHistory)) {
+            messages.append(entry);
+        }
+    }
+    else if (agentType == RagentType::Anthropic)
+    {
+        // Build messages array: confirmed history + current user turn
+        QJsonArray messages = conversationHistory;
+    }
+
     QJsonObject userMessage;
     userMessage[QStringLiteral("role")]    = QStringLiteral("user");
     userMessage[QStringLiteral("content")] = message;
@@ -90,27 +112,39 @@ void RAnthropicAgent::sendRequest(const QString &message)
     body[QStringLiteral("temperature")] = settings.temperature();
     body[QStringLiteral("top_p")]       = settings.topP();
 
-    if (!settings.systemPrompt().isEmpty()) {
-        body[QStringLiteral("system")] = settings.systemPrompt();
+    if (agentType == RagentType::Anthropic)
+    {
+        if (!settings.systemPrompt().isEmpty())
+        {
+            body[QStringLiteral("system")] = settings.systemPrompt();
+        }
     }
 
     const QByteArray requestBody = QJsonDocument(body).toJson(QJsonDocument::Compact);
 
     QNetworkRequest request{QUrl(settings.apiUrl())};
     request.setHeader(QNetworkRequest::ContentTypeHeader, QByteArrayLiteral("application/json"));
-    request.setRawHeader(QByteArrayLiteral("x-api-key"),         settings.apiKey().toUtf8());
-    request.setRawHeader(QByteArrayLiteral("anthropic-version"),  QByteArrayLiteral("2023-06-01"));
+    if (agentType == RagentType::OpenAI)
+    {
+        request.setRawHeader(QByteArrayLiteral("Authorization"),
+                             QByteArrayLiteral("Bearer ") + settings.apiKey().toUtf8());
+    }
+    else if (agentType == RagentType::Anthropic)
+    {
+        request.setRawHeader(QByteArrayLiteral("x-api-key"),         settings.apiKey().toUtf8());
+        request.setRawHeader(QByteArrayLiteral("anthropic-version"),  QByteArrayLiteral("2023-06-01"));
+    }
 
-    RLogger::info("[RAnthropicAgent] [session: %s] Sending request (turn %d, model: %s)\n",
+    RLogger::info("[RAgent] [session: %s] Sending request (turn %d, model: %s)\n",
                   sessionId.toUtf8().constData(),
                   static_cast<int>(conversationHistory.size() / 2 + 1),
                   settings.model().toUtf8().constData());
 
     networkReply = networkManager->post(request, requestBody);
-    QObject::connect(networkReply, &QNetworkReply::finished, this, &RAnthropicAgent::onReplyFinished);
+    QObject::connect(networkReply, &QNetworkReply::finished, this, &RAgent::onReplyFinished);
 }
 
-void RAnthropicAgent::onReplyFinished()
+void RAgent::onReplyFinished()
 {
     const QNetworkReply::NetworkError networkError = networkReply->error();
     const int httpStatus =
@@ -123,7 +157,7 @@ void RAnthropicAgent::onReplyFinished()
 
         if (remainingRetries > 0) {
             remainingRetries--;
-            RLogger::warning("[RAnthropicAgent] [session: %s] Request failed (%s), retrying (%d attempt(s) left).\n",
+            RLogger::warning("[RAgent] [session: %s] Request failed (%s), retrying (%d attempt(s) left).\n",
                              sessionId.toUtf8().constData(),
                              errorString.toUtf8().constData(),
                              remainingRetries + 1);
@@ -131,7 +165,7 @@ void RAnthropicAgent::onReplyFinished()
             return;
         }
 
-        RLogger::error("[RAnthropicAgent] [session: %s] Request failed after all retries: %s\n",
+        RLogger::error("[RAgent] [session: %s] Request failed after all retries: %s\n",
                        sessionId.toUtf8().constData(),
                        errorString.toUtf8().constData());
         emit errorOccurred(errorString);
@@ -145,19 +179,19 @@ void RAnthropicAgent::onReplyFinished()
     if (httpStatus != 200) {
         const QString errorString =
             QString("HTTP %1: %2").arg(httpStatus).arg(QString::fromUtf8(responseData));
-        RLogger::error("[RAnthropicAgent] [session: %s] Unexpected HTTP status %d.\n",
+        RLogger::error("[RAgent] [session: %s] Unexpected HTTP status %d.\n",
                        sessionId.toUtf8().constData(), httpStatus);
         emit errorOccurred(errorString);
         return;
     }
 
-    RLogger::info("[RAnthropicAgent] [session: %s] Response received (HTTP %d).\n",
+    RLogger::info("[RAgent] [session: %s] Response received (HTTP %d).\n",
                   sessionId.toUtf8().constData(), httpStatus);
 
     const QJsonDocument responseDoc = QJsonDocument::fromJson(responseData);
     if (responseDoc.isNull() || !responseDoc.isObject()) {
         const QString errorString = QStringLiteral("Failed to parse response JSON.");
-        RLogger::error("[RAnthropicAgent] [session: %s] %s\n",
+        RLogger::error("[RAgent] [session: %s] %s\n",
                        sessionId.toUtf8().constData(),
                        errorString.toUtf8().constData());
         emit errorOccurred(errorString);
@@ -169,27 +203,56 @@ void RAnthropicAgent::onReplyFinished()
     if (responseObj.contains(QStringLiteral("error"))) {
         const QJsonObject apiError = responseObj[QStringLiteral("error")].toObject();
         const QString errorMessage = apiError[QStringLiteral("message")].toString();
-        RLogger::error("[RAnthropicAgent] [session: %s] API error: %s\n",
+        RLogger::error("[RAgent] [session: %s] API error: %s\n",
                        sessionId.toUtf8().constData(),
                        errorMessage.toUtf8().constData());
         emit errorOccurred(errorMessage);
         return;
     }
 
-    const QJsonArray content = responseObj[QStringLiteral("content")].toArray();
-    if (content.isEmpty()) {
-        const QString errorString = QStringLiteral("Response content is empty.");
-        RLogger::error("[RAnthropicAgent] [session: %s] %s\n",
-                       sessionId.toUtf8().constData(),
-                       errorString.toUtf8().constData());
-        emit errorOccurred(errorString);
-        return;
-    }
+    if (agentType == RagentType::OpenAI)
+    {
+        // OpenAI response: { "choices": [ { "message": { "role": "assistant", "content": "..." } } ] }
+        const QJsonArray choices = responseObj[QStringLiteral("choices")].toArray();
+        if (choices.isEmpty()) {
+            const QString errorString = QStringLiteral("Response contains no choices.");
+            RLogger::error("[RAgent] [session: %s] %s\n",
+                           sessionId.toUtf8().constData(),
+                           errorString.toUtf8().constData());
+            emit errorOccurred(errorString);
+            return;
+        }
 
-    QString responseText;
-    for (const QJsonValue &block : content) {
-        if (block.toObject()[QStringLiteral("type")].toString() == QStringLiteral("text")) {
-            responseText += block.toObject()[QStringLiteral("text")].toString();
+        const QJsonObject messageObj =
+            choices.first().toObject()[QStringLiteral("message")].toObject();
+        const QString responseText = messageObj[QStringLiteral("content")].toString();
+
+        if (responseText.isEmpty()) {
+            const QString errorString = QStringLiteral("Response message content is empty.");
+            RLogger::error("[RAgent] [session: %s] %s\n",
+                           sessionId.toUtf8().constData(),
+                           errorString.toUtf8().constData());
+            emit errorOccurred(errorString);
+            return;
+        }
+    }
+    else if (agentType == RagentType::Anthropic)
+    {
+        const QJsonArray content = responseObj[QStringLiteral("content")].toArray();
+        if (content.isEmpty()) {
+            const QString errorString = QStringLiteral("Response content is empty.");
+            RLogger::error("[RAgent] [session: %s] %s\n",
+                           sessionId.toUtf8().constData(),
+                           errorString.toUtf8().constData());
+            emit errorOccurred(errorString);
+            return;
+        }
+
+        QString responseText;
+        for (const QJsonValue &block : content) {
+            if (block.toObject()[QStringLiteral("type")].toString() == QStringLiteral("text")) {
+                responseText += block.toObject()[QStringLiteral("text")].toString();
+            }
         }
     }
 
@@ -204,7 +267,7 @@ void RAnthropicAgent::onReplyFinished()
     assistantEntry[QStringLiteral("content")] = responseText;
     conversationHistory.append(assistantEntry);
 
-    RLogger::info("[RAnthropicAgent] [session: %s] Turn %d complete. History size: %d messages.\n",
+    RLogger::info("[RAgent] [session: %s] Turn %d complete. History size: %d messages.\n",
                   sessionId.toUtf8().constData(),
                   static_cast<int>(conversationHistory.size() / 2),
                   static_cast<int>(conversationHistory.size()));

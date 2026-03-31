@@ -3,14 +3,10 @@ find_package(Qt6 REQUIRED COMPONENTS Core)
 
 qt_add_library(range-ai-lib
     STATIC
-        src/rai_anthropic_agent.cpp
-        src/rai_anthropic_agent_settings.cpp
-        src/rai_open_ai_agent.cpp
-        src/rai_open_ai_agent_settings.cpp
-        include/rai_anthropic_agent.h
-        include/rai_anthropic_agent_settings.h
-        include/rai_open_ai_agent.h
-        include/rai_open_ai_agent_settings.h
+        src/rai_agent_settings.cpp
+        src/rai_agent.cpp
+        include/rai_agent_settings.h
+        include/rai_agent.h
 )
 
 # Include directories
