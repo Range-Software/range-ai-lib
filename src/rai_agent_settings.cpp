@@ -1,4 +1,4 @@
-#include "rai_anthropic_agent_settings.h"
+#include "rai_agent_settings.h"
 
 RAgentSettings::RAgentSettings()
     : m_apiUrl(QStringLiteral("https://api.anthropic.com/v1/messages"))

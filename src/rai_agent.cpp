@@ -78,7 +78,7 @@ void RAgent::sendRequest(const QString &message)
 {
     QJsonArray messages;
 
-    if (agentType == RagentType::OpenAI)
+    if (agentType == RAgent::Type::OpenAI)
     {
         // Build messages array: optional system prompt + confirmed history + current user turn.
         // The OpenAI API carries the system prompt as a message with role "system".
@@ -94,7 +94,7 @@ void RAgent::sendRequest(const QString &message)
             messages.append(entry);
         }
     }
-    else if (agentType == RagentType::Anthropic)
+    else if (agentType == RAgent::Type::Anthropic)
     {
         // Build messages array: confirmed history + current user turn
         QJsonArray messages = conversationHistory;
@@ -112,7 +112,7 @@ void RAgent::sendRequest(const QString &message)
     body[QStringLiteral("temperature")] = settings.temperature();
     body[QStringLiteral("top_p")]       = settings.topP();
 
-    if (agentType == RagentType::Anthropic)
+    if (agentType == RAgent::Type::Anthropic)
     {
         if (!settings.systemPrompt().isEmpty())
         {
@@ -124,12 +124,12 @@ void RAgent::sendRequest(const QString &message)
 
     QNetworkRequest request{QUrl(settings.apiUrl())};
     request.setHeader(QNetworkRequest::ContentTypeHeader, QByteArrayLiteral("application/json"));
-    if (agentType == RagentType::OpenAI)
+    if (agentType == RAgent::Type::OpenAI)
     {
         request.setRawHeader(QByteArrayLiteral("Authorization"),
                              QByteArrayLiteral("Bearer ") + settings.apiKey().toUtf8());
     }
-    else if (agentType == RagentType::Anthropic)
+    else if (agentType == RAgent::Type::Anthropic)
     {
         request.setRawHeader(QByteArrayLiteral("x-api-key"),         settings.apiKey().toUtf8());
         request.setRawHeader(QByteArrayLiteral("anthropic-version"),  QByteArrayLiteral("2023-06-01"));
@@ -210,7 +210,8 @@ void RAgent::onReplyFinished()
         return;
     }
 
-    if (agentType == RagentType::OpenAI)
+    QString responseText;
+    if (agentType == RAgent::Type::OpenAI)
     {
         // OpenAI response: { "choices": [ { "message": { "role": "assistant", "content": "..." } } ] }
         const QJsonArray choices = responseObj[QStringLiteral("choices")].toArray();
@@ -225,7 +226,7 @@ void RAgent::onReplyFinished()
 
         const QJsonObject messageObj =
             choices.first().toObject()[QStringLiteral("message")].toObject();
-        const QString responseText = messageObj[QStringLiteral("content")].toString();
+        responseText = messageObj[QStringLiteral("content")].toString();
 
         if (responseText.isEmpty()) {
             const QString errorString = QStringLiteral("Response message content is empty.");
@@ -236,7 +237,7 @@ void RAgent::onReplyFinished()
             return;
         }
     }
-    else if (agentType == RagentType::Anthropic)
+    else if (agentType == RAgent::Type::Anthropic)
     {
         const QJsonArray content = responseObj[QStringLiteral("content")].toArray();
         if (content.isEmpty()) {
@@ -248,7 +249,6 @@ void RAgent::onReplyFinished()
             return;
         }
 
-        QString responseText;
         for (const QJsonValue &block : content) {
             if (block.toObject()[QStringLiteral("type")].toString() == QStringLiteral("text")) {
                 responseText += block.toObject()[QStringLiteral("text")].toString();
