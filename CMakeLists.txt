@@ -18,7 +18,7 @@ target_include_directories(range-ai-lib
 target_link_libraries(range-ai-lib
     PUBLIC
         range-base-lib
-        Qt6::Network
+        range-cloud-lib
         common_defines
 )
 

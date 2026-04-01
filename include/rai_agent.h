@@ -3,37 +3,22 @@
 
 #include <QJsonArray>
 #include <QObject>
-#include <QNetworkReply>
 
 #include "rai_agent_settings.h"
 
-class QNetworkAccessManager;
+class RHttpClient;
 
 class RAgent : public QObject
 {
     Q_OBJECT
 
-    public:
-
-        enum class Type
-        {
-            OpenAI,
-            Anthropic
-        };
-
     private:
-
-        //! Agent type (e.g., OpenAI, Anthropic, Custom).
-        Type agentType;
 
         //! Agent settings.
         RAgentSettings settings;
 
-        //! Network access manager.
-        QNetworkAccessManager *networkManager;
-
-        //! Current network reply.
-        QNetworkReply *networkReply;
+        //! HTTP client.
+        RHttpClient *httpClient;
 
         //! Confirmed conversation turns sent to the API on every request.
         QJsonArray conversationHistory;
@@ -47,8 +32,8 @@ class RAgent : public QObject
         //! Remaining retry attempts for current request.
         int remainingRetries;
 
-        //! Build and dispatch the HTTP POST request.
-        void sendRequest(const QString &message);
+        //! Whether a request is currently in progress.
+        bool requestInProgress;
 
     public:
 
@@ -57,6 +42,12 @@ class RAgent : public QObject
 
         //! Destructor.
         ~RAgent() override;
+
+        //! Return current agent settings.
+        const RAgentSettings &getSettings() const;
+
+        //! Set new agent settings.
+        void setSettings(const RAgentSettings &settings);
 
         //! Return the current session identifier.
         QString getSessionId() const;
@@ -68,6 +59,14 @@ class RAgent : public QObject
         //! Previous turns in the session are included as context.
         void chat(const QString &message);
 
+    private:
+
+        //! Build and dispatch the HTTP POST request.
+        void sendRequest(const QString &message);
+
+        //! Build and return an RHttpClient configured from current settings.
+        RHttpClient *buildHttpClient();
+
     signals:
 
         //! Emitted when the assistant response has been received.
@@ -75,11 +74,6 @@ class RAgent : public QObject
 
         //! Emitted when the request fails and all retries are exhausted.
         void errorOccurred(const QString &error);
-
-    private slots:
-
-        //! Called when the network reply has finished.
-        void onReplyFinished();
 
 };
 

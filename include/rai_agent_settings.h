@@ -2,83 +2,108 @@
 #define RAI_AGENT_SETTINGS_H
 
 #include <QString>
+#include <QJsonObject>
 
 class RAgentSettings
 {
 
+    public:
+
+        enum class Type
+        {
+            None = 0,
+            OpenAI,
+            Anthropic,
+            nTypes
+        };
+
     private:
 
+        //! Agent type.
+        RAgentSettings::Type type;
+
         // API Settings
-        QString m_apiKey;
-        QString m_apiUrl;
-        QString m_model;
+        QString apiKey;
+        QString apiUrl;
+        QString model;
 
         // Request Settings
-        QString m_systemPrompt;
-        double m_temperature;
-        int m_maxTokens;
-        double m_topP;
+        QString systemPrompt;
+        double temperature;
+        int maxTokens;
+        double topP;
 
         // Network Settings
-        int m_timeout;
-        QString m_proxyHost;
-        int m_proxyPort;
-        QString m_proxyUser;
-        QString m_proxyPassword;
-        int m_retryCount;
+        int timeout;
+        QString proxyHost;
+        int proxyPort;
+        QString proxyUser;
+        QString proxyPassword;
+        int retryCount;
 
     public:
 
-        RAgentSettings();
+        RAgentSettings(RAgentSettings::Type type = RAgentSettings::Type::None);
         RAgentSettings(const RAgentSettings &other);
         RAgentSettings &operator=(const RAgentSettings &other);
         ~RAgentSettings();
 
+        RAgentSettings::Type getType() const;
+        void setType(RAgentSettings::Type type);
+
         // API Settings
-        QString apiKey() const;
+        QString getApiKey() const;
         void setApiKey(const QString &apiKey);
 
-        QString apiUrl() const;
+        QString getApiUrl() const;
         void setApiUrl(const QString &apiUrl);
 
-        QString model() const;
+        QString getModel() const;
         void setModel(const QString &model);
 
         // Request Settings
-        QString systemPrompt() const;
+        QString getSystemPrompt() const;
         void setSystemPrompt(const QString &systemPrompt);
 
-        double temperature() const;
+        double getTemperature() const;
         void setTemperature(double temperature);
 
-        int maxTokens() const;
+        int getMaxTokens() const;
         void setMaxTokens(int maxTokens);
 
-        double topP() const;
+        double getTopP() const;
         void setTopP(double topP);
 
         // Network Settings
-        int timeout() const;
+        int getTimeout() const;
         void setTimeout(int timeout);
 
-        QString proxyHost() const;
+        QString getProxyHost() const;
         void setProxyHost(const QString &proxyHost);
 
-        int proxyPort() const;
+        int getProxyPort() const;
         void setProxyPort(int proxyPort);
 
-        QString proxyUser() const;
+        QString getProxyUser() const;
         void setProxyUser(const QString &proxyUser);
 
-        QString proxyPassword() const;
+        QString getProxyPassword() const;
         void setProxyPassword(const QString &proxyPassword);
 
-        int retryCount() const;
+        int getRetryCount() const;
         void setRetryCount(int retryCount);
 
-        static RAgentSettings defaultAnthropicSettings();
+        //! Create settings object from Json.
+        static RAgentSettings fromJson(const QJsonObject &json);
 
-        static RAgentSettings defaultOpenAiSettings();
+        //! Create Json from settings object.
+        QJsonObject toJson() const;
+
+        //! Convert type to string.
+        static QString typeToString(RAgentSettings::Type type);
+
+        //! Convert string to type.
+        static RAgentSettings::Type stringToType(const QString &typeString);
 
 };
 
