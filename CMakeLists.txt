@@ -7,6 +7,8 @@ qt_add_library(range-ai-lib
         src/rai_agent.cpp
         include/rai_agent_settings.h
         include/rai_agent.h
+        include/rai_agent_settings_manager.h src/rai_agent_settings_manager.cpp
+
 )
 
 # Include directories

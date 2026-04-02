@@ -11,39 +11,41 @@ RAgentSettings::RAgentSettings(Type type)
 {
     switch (type)
     {
-    case Type::Anthropic:
-        this->apiUrl = QStringLiteral("https://api.anthropic.com/v1/messages");
-        this->model = QStringLiteral("claude-sonnet-4-20250514");
-        break;
-    case Type::OpenAI:
-        this->apiUrl = QStringLiteral("https://api.openai.com/v1/chat/completions");
-        this->model = QStringLiteral("gpt-4-0613");
-        break;
-    default:
-        break;
+        case Type::Anthropic:
+            this->apiUrl = QStringLiteral("https://api.anthropic.com/v1/messages");
+            this->model = QStringLiteral("claude-sonnet-4-20250514");
+            break;
+        case Type::OpenAI:
+            this->apiUrl = QStringLiteral("https://api.openai.com/v1/chat/completions");
+            this->model = QStringLiteral("gpt-4-0613");
+            break;
+        default:
+            break;
     }
 }
 
 RAgentSettings::RAgentSettings(const RAgentSettings &other)
-    : apiKey(other.apiKey)
-    , apiUrl(other.apiUrl)
-    , model(other.model)
-    , systemPrompt(other.systemPrompt)
-    , temperature(other.temperature)
-    , maxTokens(other.maxTokens)
-    , topP(other.topP)
-    , timeout(other.timeout)
-    , proxyHost(other.proxyHost)
-    , proxyPort(other.proxyPort)
-    , proxyUser(other.proxyUser)
-    , proxyPassword(other.proxyPassword)
-    , retryCount(other.retryCount)
+    : type{other.type}
+    , apiKey{other.apiKey}
+    , apiUrl{other.apiUrl}
+    , model{other.model}
+    , systemPrompt{other.systemPrompt}
+    , temperature{other.temperature}
+    , maxTokens{other.maxTokens}
+    , topP{other.topP}
+    , timeout{other.timeout}
+    , proxyHost{other.proxyHost}
+    , proxyPort{other.proxyPort}
+    , proxyUser{other.proxyUser}
+    , proxyPassword{other.proxyPassword}
+    , retryCount{other.retryCount}
 {
 }
 
 RAgentSettings &RAgentSettings::operator=(const RAgentSettings &other)
 {
     if (this != &other) {
+        this->type = other.type;
         this->apiKey = other.apiKey;
         this->apiUrl = other.apiUrl;
         this->model = other.model;
