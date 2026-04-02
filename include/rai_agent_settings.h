@@ -31,7 +31,6 @@ class RAgentSettings
         QString systemPrompt;
         double temperature;
         int maxTokens;
-        double topP;
 
         // Network Settings
         int timeout;
@@ -70,9 +69,6 @@ class RAgentSettings
 
         int getMaxTokens() const;
         void setMaxTokens(int maxTokens);
-
-        double getTopP() const;
-        void setTopP(double topP);
 
         // Network Settings
         int getTimeout() const;

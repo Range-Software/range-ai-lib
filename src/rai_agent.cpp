@@ -68,7 +68,7 @@ void RAgent::chat(const QString &message)
     }
 
     pendingMessage = message;
-    remainingRetries = settings.getRetryCount();
+    remainingRetries = this->settings.getRetryCount();
     QTimer::singleShot(0, this, [this]() {
         sendRequest(pendingMessage);
     });
@@ -80,11 +80,11 @@ void RAgent::sendRequest(const QString &message)
 
     if (this->settings.getType() == RAgentSettings::Type::OpenAI)
     {
-        if (!settings.getSystemPrompt().isEmpty())
+        if (!this->settings.getSystemPrompt().isEmpty())
         {
             QJsonObject systemMessage;
             systemMessage[QStringLiteral("role")]    = QStringLiteral("system");
-            systemMessage[QStringLiteral("content")] = settings.getSystemPrompt();
+            systemMessage[QStringLiteral("content")] = this->settings.getSystemPrompt();
             messages.append(systemMessage);
         }
 
@@ -104,17 +104,16 @@ void RAgent::sendRequest(const QString &message)
     messages.append(userMessage);
 
     QJsonObject body;
-    body[QStringLiteral("model")]    = settings.getModel();
+    body[QStringLiteral("model")]    = this->settings.getModel();
     body[QStringLiteral("messages")] = messages;
     if (this->settings.getType() == RAgentSettings::Type::Anthropic)
     {
-        body[QStringLiteral("max_tokens")]  = settings.getMaxTokens();
-        body[QStringLiteral("temperature")] = settings.getTemperature();
-        body[QStringLiteral("top_p")]       = settings.getTopP();
+        body[QStringLiteral("max_tokens")]  = this->settings.getMaxTokens();
+        body[QStringLiteral("temperature")] = this->settings.getTemperature();
 
-        if (!settings.getSystemPrompt().isEmpty())
+        if (!this->settings.getSystemPrompt().isEmpty())
         {
-            body[QStringLiteral("system")] = settings.getSystemPrompt();
+            body[QStringLiteral("system")] = this->settings.getSystemPrompt();
         }
     }
 
@@ -124,11 +123,11 @@ void RAgent::sendRequest(const QString &message)
     headers.append(QHttpHeaders::WellKnownHeader::ContentType, QByteArrayLiteral("application/json"));
     if (this->settings.getType() == RAgentSettings::Type::OpenAI)
     {
-        headers.append("Authorization", QByteArrayLiteral("Bearer ") + settings.getApiKey().toUtf8());
+        headers.append("Authorization", QByteArrayLiteral("Bearer ") + this->settings.getApiKey().toUtf8());
     }
     else if (this->settings.getType() == RAgentSettings::Type::Anthropic)
     {
-        headers.append("x-api-key",        settings.getApiKey().toUtf8());
+        headers.append("x-api-key", this->settings.getApiKey().toUtf8());
         headers.append("anthropic-version", QByteArrayLiteral("2023-06-01"));
     }
 
@@ -147,7 +146,7 @@ void RAgent::sendRequest(const QString &message)
         RLogger::info("[RAgent] [session: %s] Sending request (turn %d, model: %s, attempt %d)\n",
                       sessionId.toUtf8().constData(),
                       static_cast<int>(conversationHistory.size() / 2 + 1),
-                      settings.getModel().toUtf8().constData(),
+                      this->settings.getModel().toUtf8().constData(),
                       attempt + 1);
 
         RHttpMessage reply;
@@ -279,21 +278,21 @@ void RAgent::sendRequest(const QString &message)
 RHttpClient *RAgent::buildHttpClient()
 {
     RHttpClientSettings httpSettings;
-    httpSettings.setUrl(settings.getApiUrl());
-    httpSettings.setTimeout(static_cast<uint>(settings.getTimeout()));
+    httpSettings.setUrl(this->settings.getApiUrl());
+    httpSettings.setTimeout(static_cast<uint>(this->settings.getTimeout()));
 
-    if (!settings.getProxyHost().isEmpty())
+    if (!this->settings.getProxyHost().isEmpty())
     {
         RHttpProxySettings proxy;
         proxy.setType(RHttpProxySettings::ManualProxy);
-        proxy.setHost(settings.getProxyHost());
-        proxy.setPort(static_cast<quint16>(settings.getProxyPort()));
-        proxy.setUser(settings.getProxyUser());
-        proxy.setPassword(settings.getProxyPassword());
+        proxy.setHost(this->settings.getProxyHost());
+        proxy.setPort(static_cast<quint16>(this->settings.getProxyPort()));
+        proxy.setUser(this->settings.getProxyUser());
+        proxy.setPassword(this->settings.getProxyPassword());
         httpSettings.setProxySettings(proxy);
         RLogger::info("[RAgent] Proxy configured: %s:%d\n",
-                      settings.getProxyHost().toUtf8().constData(),
-                      settings.getProxyPort());
+                      this->settings.getProxyHost().toUtf8().constData(),
+                      this->settings.getProxyPort());
     }
 
     return new RHttpClient(RHttpClient::Type::Public, httpSettings, this);

@@ -4,7 +4,6 @@ RAgentSettings::RAgentSettings(Type type)
     : type{type}
     , temperature{1.0}
     , maxTokens{4096}
-    , topP{1.0}
     , timeout{30000}
     , proxyPort{0}
     , retryCount{3}
@@ -13,11 +12,11 @@ RAgentSettings::RAgentSettings(Type type)
     {
         case Type::Anthropic:
             this->apiUrl = QStringLiteral("https://api.anthropic.com/v1/messages");
-            this->model = QStringLiteral("claude-sonnet-4-20250514");
+            this->model = QStringLiteral("claude-sonnet-4-6");
             break;
         case Type::OpenAI:
             this->apiUrl = QStringLiteral("https://api.openai.com/v1/chat/completions");
-            this->model = QStringLiteral("gpt-4-0613");
+            this->model = QStringLiteral("gpt-5.4-mini");
             break;
         default:
             break;
@@ -32,7 +31,6 @@ RAgentSettings::RAgentSettings(const RAgentSettings &other)
     , systemPrompt{other.systemPrompt}
     , temperature{other.temperature}
     , maxTokens{other.maxTokens}
-    , topP{other.topP}
     , timeout{other.timeout}
     , proxyHost{other.proxyHost}
     , proxyPort{other.proxyPort}
@@ -52,7 +50,6 @@ RAgentSettings &RAgentSettings::operator=(const RAgentSettings &other)
         this->systemPrompt = other.systemPrompt;
         this->temperature = other.temperature;
         this->maxTokens = other.maxTokens;
-        this->topP = other.topP;
         this->timeout = other.timeout;
         this->proxyHost = other.proxyHost;
         this->proxyPort = other.proxyPort;
@@ -137,15 +134,6 @@ void RAgentSettings::setMaxTokens(int maxTokens)
     this->maxTokens = maxTokens;
 }
 
-double RAgentSettings::getTopP() const
-{
-    return this->topP;
-}
-
-void RAgentSettings::setTopP(double topP)
-{
-    this->topP = topP;
-}
 
 int RAgentSettings::getTimeout() const
 {
@@ -209,21 +197,23 @@ void RAgentSettings::setRetryCount(int retryCount)
 
 RAgentSettings RAgentSettings::fromJson(const QJsonObject &json)
 {
-    RAgentSettings settings;
-
+    Type type = Type::None;
     if (const QJsonValue &v = json["type"]; v.isString())
     {
-        settings.type = RAgentSettings::stringToType(v.toString());
+        type = RAgentSettings::stringToType(v.toString());
     }
+
+    RAgentSettings settings(type);
+
     if (const QJsonValue &v = json["apiKey"]; v.isString())
     {
         settings.apiKey = v.toString();
     }
-    if (const QJsonValue &v = json["apiUrl"]; v.isString())
+    if (const QJsonValue &v = json["apiUrl"]; v.isString() && !v.toString().isEmpty())
     {
         settings.apiUrl = v.toString();
     }
-    if (const QJsonValue &v = json["model"]; v.isString())
+    if (const QJsonValue &v = json["model"]; v.isString() && !v.toString().isEmpty())
     {
         settings.model = v.toString();
     }
@@ -238,10 +228,6 @@ RAgentSettings RAgentSettings::fromJson(const QJsonObject &json)
     if (const QJsonValue &v = json["maxTokens"]; v.isDouble())
     {
         settings.maxTokens = v.toInt();
-    }
-    if (const QJsonValue &v = json["topP"]; v.isDouble())
-    {
-        settings.topP = v.toDouble();
     }
     if (const QJsonValue &v = json["timeout"]; v.isDouble())
     {
@@ -266,7 +252,6 @@ QJsonObject RAgentSettings::toJson() const
     json["systemPrompt"] = this->systemPrompt;
     json["temperature"] = this->temperature;
     json["maxTokens"] = this->maxTokens;
-    json["topP"] = this->topP;
     json["timeout"] = this->timeout;
     json["retryCount"] = this->retryCount;
 
