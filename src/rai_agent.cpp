@@ -32,6 +32,11 @@ const RAgentSettings &RAgent::getSettings() const
     return this->settings;
 }
 
+RAgentSettings &RAgent::getSettings()
+{
+    return this->settings;
+}
+
 void RAgent::setSettings(const RAgentSettings &settings)
 {
     this->settings = settings;

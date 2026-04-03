@@ -46,6 +46,9 @@ class RAgent : public QObject
         //! Return current agent settings.
         const RAgentSettings &getSettings() const;
 
+        //! Return current agent settings.
+        RAgentSettings &getSettings();
+
         //! Set new agent settings.
         void setSettings(const RAgentSettings &settings);
 
