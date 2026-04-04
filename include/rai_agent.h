@@ -49,14 +49,16 @@ class RAgent : public QObject
         //! Return current agent settings.
         RAgentSettings &getSettings();
 
-        //! Set new agent settings.
-        void setSettings(const RAgentSettings &settings);
-
         //! Return the current session identifier.
         QString getSessionId() const;
 
         //! Clear conversation history and assign a new session identifier.
         void startNewSession();
+
+    public slots:
+
+        //! Set new agent settings.
+        void setSettings(const RAgentSettings &settings);
 
         //! Send a user message and asynchronously receive a response.
         //! Previous turns in the session are included as context.
