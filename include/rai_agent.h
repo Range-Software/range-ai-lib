@@ -35,6 +35,9 @@ class RAgent : public QObject
         //! Whether a request is currently in progress.
         bool requestInProgress;
 
+        //! Maximum number of conversation turns kept in history (older turns are dropped).
+        int maxHistoryTurns;
+
     public:
 
         //! Constructor. Starts a new session automatically.
@@ -57,8 +60,11 @@ class RAgent : public QObject
 
     public slots:
 
-        //! Set new agent settings.
+        //! Set new agent settings. Resets conversation history and rebuilds the HTTP client.
         void setSettings(const RAgentSettings &settings);
+
+        //! Update the system prompt only, without resetting history or rebuilding the HTTP client.
+        void setSystemPrompt(const QString &systemPrompt);
 
         //! Send a user message and asynchronously receive a response.
         //! Previous turns in the session are included as context.

@@ -18,6 +18,7 @@ RAgent::RAgent(const RAgentSettings &settings, QObject *parent)
     , httpClient{nullptr}
     , remainingRetries{0}
     , requestInProgress{false}
+    , maxHistoryTurns{20}
 {
     httpClient = buildHttpClient();
     startNewSession();
@@ -43,6 +44,12 @@ void RAgent::setSettings(const RAgentSettings &settings)
 
     delete httpClient;
     httpClient = buildHttpClient();
+    startNewSession();
+}
+
+void RAgent::setSystemPrompt(const QString &systemPrompt)
+{
+    this->settings.setSystemPrompt(systemPrompt);
 }
 
 QString RAgent::getSessionId() const
@@ -118,7 +125,13 @@ void RAgent::sendRequest(const QString &message)
 
         if (!this->settings.getSystemPrompt().isEmpty())
         {
-            body[QStringLiteral("system")] = this->settings.getSystemPrompt();
+            QJsonObject textBlock;
+            textBlock[QStringLiteral("type")] = QStringLiteral("text");
+            textBlock[QStringLiteral("text")] = this->settings.getSystemPrompt();
+            QJsonObject cacheControl;
+            cacheControl[QStringLiteral("type")] = QStringLiteral("ephemeral");
+            textBlock[QStringLiteral("cache_control")] = cacheControl;
+            body[QStringLiteral("system")] = QJsonArray{textBlock};
         }
     }
 
@@ -271,6 +284,10 @@ void RAgent::sendRequest(const QString &message)
     assistantEntry[QStringLiteral("role")]    = QStringLiteral("assistant");
     assistantEntry[QStringLiteral("content")] = responseText;
     conversationHistory.append(assistantEntry);
+
+    // Trim history to the configured window (each turn = 2 entries)
+    while (conversationHistory.size() > maxHistoryTurns * 2)
+        conversationHistory.removeFirst();
 
     RLogger::info("[RAgent] [session: %s] Turn %d complete. History size: %d messages.\n",
                   sessionId.toUtf8().constData(),
