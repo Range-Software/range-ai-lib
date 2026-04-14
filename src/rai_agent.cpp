@@ -145,8 +145,16 @@ void RAgent::sendRequest(const QString &message)
     }
     else if (this->settings.getType() == RAgentSettings::Type::Anthropic)
     {
-        headers.append("x-api-key", this->settings.getApiKey().toUtf8());
-        headers.append("anthropic-version", QByteArrayLiteral("2023-06-01"));
+        const bool isNativeAnthropicUrl = this->settings.getApiUrl().contains(QStringLiteral("anthropic.com"));
+        if (isNativeAnthropicUrl)
+        {
+            headers.append("x-api-key", this->settings.getApiKey().toUtf8());
+            headers.append("anthropic-version", QByteArrayLiteral("2023-06-01"));
+        }
+        else
+        {
+            headers.append("Authorization", QByteArrayLiteral("Bearer ") + this->settings.getApiKey().toUtf8());
+        }
     }
 
     RHttpMessage request;
