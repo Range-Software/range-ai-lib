@@ -96,7 +96,7 @@ void RAgentSettingsManager::renameSettings(const QString &oldName, const QString
 {
     this->settingsMap.insert(newName,settingsMap.value(oldName));
     this->settingsMap.remove(oldName);
-    emit this->settingsRenamed(newName,newName);
+    emit this->settingsRenamed(oldName,newName);
 }
 
 qsizetype RAgentSettingsManager::removeSettings(const QString &name)
