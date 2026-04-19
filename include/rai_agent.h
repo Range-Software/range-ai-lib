@@ -45,6 +45,9 @@ class RAgent : public QObject
         //! Maximum number of conversation turns kept in history (older turns are dropped).
         int maxHistoryTurns;
 
+        //! Last response ID from the OpenAI Responses API; used as previous_response_id in subsequent requests.
+        QString previousResponseId;
+
     public:
 
         //! Constructor. Starts a new session automatically.

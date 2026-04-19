@@ -12,6 +12,7 @@ class RAgentSettings
         enum class Type
         {
             None = 0,
+            OpenAILegacy,
             OpenAI,
             Anthropic,
             nTypes

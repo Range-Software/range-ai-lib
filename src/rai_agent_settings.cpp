@@ -14,9 +14,13 @@ RAgentSettings::RAgentSettings(Type type)
             this->apiUrl = QStringLiteral("https://api.anthropic.com/v1/messages");
             this->model = QStringLiteral("claude-sonnet-4-6");
             break;
-        case Type::OpenAI:
+        case Type::OpenAILegacy:
             this->apiUrl = QStringLiteral("https://api.openai.com/v1/chat/completions");
             this->model = QStringLiteral("gpt-5.4-mini");
+            break;
+        case Type::OpenAI:
+            this->apiUrl = QStringLiteral("https://api.openai.com/v1/responses");
+            this->model = QStringLiteral("gpt-5-codex");
             break;
         default:
             break;
@@ -264,6 +268,8 @@ QString RAgentSettings::typeToString(Type type)
     {
         case RAgentSettings::Type::Anthropic:
             return "Anthropic";
+        case RAgentSettings::Type::OpenAILegacy:
+            return "OpenAI (Legacy)";
         case RAgentSettings::Type::OpenAI:
             return "OpenAI";
         case RAgentSettings::Type::None:

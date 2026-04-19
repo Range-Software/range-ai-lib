@@ -71,6 +71,7 @@ void RAgent::startNewSession()
 {
     sessionId = QUuid::createUuid().toString(QUuid::WithoutBraces);
     conversationHistory = QJsonArray();
+    previousResponseId.clear();
     RLogger::info("[RAgent] New session started: %s\n",
                   sessionId.toUtf8().constData());
 }
@@ -105,50 +106,67 @@ void RAgent::chat(const QString &message)
 
 void RAgent::sendRequest(const QString &message)
 {
-    QJsonArray messages;
+    QJsonObject body;
+    body[QStringLiteral("model")] = this->settings.getModel();
 
     if (this->settings.getType() == RAgentSettings::Type::OpenAI)
     {
+        body[QStringLiteral("input")]             = message;
+        body[QStringLiteral("max_output_tokens")] = this->settings.getMaxTokens();
         if (!this->settings.getSystemPrompt().isEmpty())
         {
-            QJsonObject systemMessage;
-            systemMessage[QStringLiteral("role")]    = QStringLiteral("system");
-            systemMessage[QStringLiteral("content")] = this->settings.getSystemPrompt();
-            messages.append(systemMessage);
+            body[QStringLiteral("instructions")] = this->settings.getSystemPrompt();
         }
-
-        for (const QJsonValue &entry : std::as_const(conversationHistory))
+        if (!previousResponseId.isEmpty())
         {
-            messages.append(entry);
+            body[QStringLiteral("previous_response_id")] = previousResponseId;
         }
     }
-    else if (this->settings.getType() == RAgentSettings::Type::Anthropic)
+    else
     {
-        messages = conversationHistory;
-    }
+        QJsonArray messages;
 
-    QJsonObject userMessage;
-    userMessage[QStringLiteral("role")]    = QStringLiteral("user");
-    userMessage[QStringLiteral("content")] = message;
-    messages.append(userMessage);
-
-    QJsonObject body;
-    body[QStringLiteral("model")]    = this->settings.getModel();
-    body[QStringLiteral("messages")] = messages;
-    if (this->settings.getType() == RAgentSettings::Type::Anthropic)
-    {
-        body[QStringLiteral("max_tokens")]  = this->settings.getMaxTokens();
-        body[QStringLiteral("temperature")] = this->settings.getTemperature();
-
-        if (!this->settings.getSystemPrompt().isEmpty())
+        if (this->settings.getType() == RAgentSettings::Type::OpenAILegacy)
         {
-            QJsonObject textBlock;
-            textBlock[QStringLiteral("type")] = QStringLiteral("text");
-            textBlock[QStringLiteral("text")] = this->settings.getSystemPrompt();
-            QJsonObject cacheControl;
-            cacheControl[QStringLiteral("type")] = QStringLiteral("ephemeral");
-            textBlock[QStringLiteral("cache_control")] = cacheControl;
-            body[QStringLiteral("system")] = QJsonArray{textBlock};
+            if (!this->settings.getSystemPrompt().isEmpty())
+            {
+                QJsonObject systemMessage;
+                systemMessage[QStringLiteral("role")]    = QStringLiteral("system");
+                systemMessage[QStringLiteral("content")] = this->settings.getSystemPrompt();
+                messages.append(systemMessage);
+            }
+
+            for (const QJsonValue &entry : std::as_const(conversationHistory))
+            {
+                messages.append(entry);
+            }
+        }
+        else if (this->settings.getType() == RAgentSettings::Type::Anthropic)
+        {
+            messages = conversationHistory;
+        }
+
+        QJsonObject userMessage;
+        userMessage[QStringLiteral("role")]    = QStringLiteral("user");
+        userMessage[QStringLiteral("content")] = message;
+        messages.append(userMessage);
+
+        body[QStringLiteral("messages")] = messages;
+        if (this->settings.getType() == RAgentSettings::Type::Anthropic)
+        {
+            body[QStringLiteral("max_tokens")]  = this->settings.getMaxTokens();
+            body[QStringLiteral("temperature")] = this->settings.getTemperature();
+
+            if (!this->settings.getSystemPrompt().isEmpty())
+            {
+                QJsonObject textBlock;
+                textBlock[QStringLiteral("type")] = QStringLiteral("text");
+                textBlock[QStringLiteral("text")] = this->settings.getSystemPrompt();
+                QJsonObject cacheControl;
+                cacheControl[QStringLiteral("type")] = QStringLiteral("ephemeral");
+                textBlock[QStringLiteral("cache_control")] = cacheControl;
+                body[QStringLiteral("system")] = QJsonArray{textBlock};
+            }
         }
     }
 
@@ -156,7 +174,8 @@ void RAgent::sendRequest(const QString &message)
 
     QHttpHeaders headers;
     headers.append(QHttpHeaders::WellKnownHeader::ContentType, QByteArrayLiteral("application/json"));
-    if (this->settings.getType() == RAgentSettings::Type::OpenAI)
+    if (this->settings.getType() == RAgentSettings::Type::OpenAILegacy ||
+        this->settings.getType() == RAgentSettings::Type::OpenAI)
     {
         headers.append("Authorization", QByteArrayLiteral("Bearer ") + this->settings.getApiKey().toUtf8());
     }
@@ -258,10 +277,26 @@ void RAgent::sendRequest(const QString &message)
 
     const QJsonObject responseObj = responseDoc.object();
 
-    if (responseObj.contains(QStringLiteral("error")))
+    if (responseObj.contains(QStringLiteral("error")) && !responseObj[QStringLiteral("error")].isNull())
     {
-        const QJsonObject apiError = responseObj[QStringLiteral("error")].toObject();
-        const QString err = apiError[QStringLiteral("message")].toString();
+        const QJsonValue errorVal = responseObj[QStringLiteral("error")];
+        QString err;
+        if (errorVal.isObject())
+        {
+            err = errorVal.toObject()[QStringLiteral("message")].toString();
+            if (err.isEmpty())
+            {
+                err = QString::fromUtf8(QJsonDocument(errorVal.toObject()).toJson(QJsonDocument::Compact));
+            }
+        }
+        else if (errorVal.isString())
+        {
+            err = errorVal.toString();
+        }
+        if (err.isEmpty())
+        {
+            err = QString::fromUtf8(QJsonDocument(responseObj).toJson(QJsonDocument::Compact));
+        }
         RLogger::error("[RAgent] [session: %s] API error: %s\n",
                        sessionId.toUtf8().constData(), err.toUtf8().constData());
         emit errorOccurred(err);
@@ -269,7 +304,7 @@ void RAgent::sendRequest(const QString &message)
     }
 
     QString responseText;
-    if (this->settings.getType() == RAgentSettings::Type::OpenAI)
+    if (this->settings.getType() == RAgentSettings::Type::OpenAILegacy)
     {
         const QJsonArray choices = responseObj[QStringLiteral("choices")].toArray();
         if (choices.isEmpty())
@@ -294,6 +329,46 @@ void RAgent::sendRequest(const QString &message)
             return;
         }
     }
+    else if (this->settings.getType() == RAgentSettings::Type::OpenAI)
+    {
+        const QJsonArray output = responseObj[QStringLiteral("output")].toArray();
+        if (output.isEmpty())
+        {
+            const QString err = QStringLiteral("Response contains no output.");
+            RLogger::error("[RAgent] [session: %s] %s\n",
+                           sessionId.toUtf8().constData(), err.toUtf8().constData());
+            emit errorOccurred(err);
+            return;
+        }
+
+        for (const QJsonValue &item : output)
+        {
+            const QJsonObject itemObj = item.toObject();
+            if (itemObj[QStringLiteral("type")].toString() == QStringLiteral("message"))
+            {
+                const QJsonArray content = itemObj[QStringLiteral("content")].toArray();
+                for (const QJsonValue &block : content)
+                {
+                    const QJsonObject blockObj = block.toObject();
+                    if (blockObj[QStringLiteral("type")].toString() == QStringLiteral("output_text"))
+                    {
+                        responseText += blockObj[QStringLiteral("text")].toString();
+                    }
+                }
+            }
+        }
+
+        if (responseText.isEmpty())
+        {
+            const QString err = QStringLiteral("Response output text is empty.");
+            RLogger::error("[RAgent] [session: %s] %s\n",
+                           sessionId.toUtf8().constData(), err.toUtf8().constData());
+            emit errorOccurred(err);
+            return;
+        }
+
+        previousResponseId = responseObj[QStringLiteral("id")].toString();
+    }
     else if (this->settings.getType() == RAgentSettings::Type::Anthropic)
     {
         const QJsonArray content = responseObj[QStringLiteral("content")].toArray();
@@ -316,19 +391,22 @@ void RAgent::sendRequest(const QString &message)
         }
     }
 
-    QJsonObject userEntry;
-    userEntry[QStringLiteral("role")]    = QStringLiteral("user");
-    userEntry[QStringLiteral("content")] = pendingMessage;
-    conversationHistory.append(userEntry);
+    if (this->settings.getType() != RAgentSettings::Type::OpenAI)
+    {
+        QJsonObject userEntry;
+        userEntry[QStringLiteral("role")]    = QStringLiteral("user");
+        userEntry[QStringLiteral("content")] = pendingMessage;
+        conversationHistory.append(userEntry);
 
-    QJsonObject assistantEntry;
-    assistantEntry[QStringLiteral("role")]    = QStringLiteral("assistant");
-    assistantEntry[QStringLiteral("content")] = responseText;
-    conversationHistory.append(assistantEntry);
+        QJsonObject assistantEntry;
+        assistantEntry[QStringLiteral("role")]    = QStringLiteral("assistant");
+        assistantEntry[QStringLiteral("content")] = responseText;
+        conversationHistory.append(assistantEntry);
 
-    // Trim history to the configured window (each turn = 2 entries)
-    while (conversationHistory.size() > maxHistoryTurns * 2)
-        conversationHistory.removeFirst();
+        // Trim history to the configured window (each turn = 2 entries)
+        while (conversationHistory.size() > maxHistoryTurns * 2)
+            conversationHistory.removeFirst();
+    }
 
     RLogger::info("[RAgent] [session: %s] Turn %d complete. History size: %d messages.\n",
                   sessionId.toUtf8().constData(),
