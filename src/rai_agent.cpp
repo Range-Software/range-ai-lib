@@ -18,6 +18,8 @@ RAgent::RAgent(const RAgentSettings &settings, QObject *parent)
     , httpClient{nullptr}
     , remainingRetries{0}
     , requestInProgress{false}
+    , cancelled{false}
+    , hasPendingSettings{false}
     , maxHistoryTurns{20}
 {
     httpClient = buildHttpClient();
@@ -40,8 +42,16 @@ RAgentSettings &RAgent::getSettings()
 
 void RAgent::setSettings(const RAgentSettings &settings)
 {
-    this->settings = settings;
+    if (requestInProgress)
+    {
+        pendingSettings = settings;
+        hasPendingSettings = true;
+        cancelled = true;
+        httpClient->abort();
+        return;
+    }
 
+    this->settings = settings;
     delete httpClient;
     httpClient = buildHttpClient();
     startNewSession();
@@ -63,6 +73,13 @@ void RAgent::startNewSession()
     conversationHistory = QJsonArray();
     RLogger::info("[RAgent] New session started: %s\n",
                   sessionId.toUtf8().constData());
+}
+
+void RAgent::cancelRequest()
+{
+    if (!requestInProgress) return;
+    cancelled = true;
+    httpClient->abort();
 }
 
 void RAgent::chat(const QString &message)
@@ -201,6 +218,22 @@ void RAgent::sendRequest(const QString &message)
     }
 
     requestInProgress = false;
+
+    if (cancelled)
+    {
+        cancelled = false;
+        if (hasPendingSettings)
+        {
+            hasPendingSettings = false;
+            this->settings = pendingSettings;
+            delete httpClient;
+            httpClient = buildHttpClient();
+            startNewSession();
+        }
+        RLogger::info("[RAgent] [session: %s] Request cancelled.\n", sessionId.toUtf8().constData());
+        emit requestCancelled();
+        return;
+    }
 
     if (!errorString.isEmpty())
     {

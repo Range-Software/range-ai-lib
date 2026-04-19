@@ -35,6 +35,13 @@ class RAgent : public QObject
         //! Whether a request is currently in progress.
         bool requestInProgress;
 
+        //! Whether the current request has been cancelled.
+        bool cancelled;
+
+        //! Settings update deferred because a request was in progress when setSettings was called.
+        RAgentSettings pendingSettings;
+        bool hasPendingSettings;
+
         //! Maximum number of conversation turns kept in history (older turns are dropped).
         int maxHistoryTurns;
 
@@ -70,6 +77,9 @@ class RAgent : public QObject
         //! Previous turns in the session are included as context.
         void chat(const QString &message);
 
+        //! Cancel the current in-progress request. No-op if no request is in progress.
+        void cancelRequest();
+
     private:
 
         //! Build and dispatch the HTTP POST request.
@@ -85,6 +95,9 @@ class RAgent : public QObject
 
         //! Emitted when the request fails and all retries are exhausted.
         void errorOccurred(const QString &error);
+
+        //! Emitted when the request was cancelled via cancelRequest().
+        void requestCancelled();
 
 };
 
