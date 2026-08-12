@@ -29,6 +29,12 @@ class RAgent : public QObject
         //! Message pending retry or in-flight.
         QString pendingMessage;
 
+        //! Anthropic file id attached to the pending message (Files API).
+        QString pendingAttachedFileId;
+
+        //! Mime type of the attached file (decides between document and image block).
+        QString pendingAttachedFileMimeType;
+
         //! Remaining retry attempts for current request.
         int remainingRetries;
 
@@ -78,7 +84,10 @@ class RAgent : public QObject
 
         //! Send a user message and asynchronously receive a response.
         //! Previous turns in the session are included as context.
-        void chat(const QString &message);
+        //! An optional file already uploaded to the Anthropic Files API can be
+        //! attached to the message (Anthropic agent type only); the mime type
+        //! decides whether it is referenced as a document or an image block.
+        void chat(const QString &message, const QString &attachedFileId = QString(), const QString &attachedFileMimeType = QString());
 
         //! Cancel the current in-progress request. No-op if no request is in progress.
         void cancelRequest();

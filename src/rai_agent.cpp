@@ -6,11 +6,11 @@
 #include <QTimer>
 #include <QUuid>
 
-#include "rcl_http_client.h"
-#include "rcl_http_client_settings.h"
-#include "rcl_http_message.h"
-#include "rcl_http_proxy_settings.h"
-#include "rbl_logger.h"
+#include <rcl_http_client.h>
+#include <rcl_http_client_settings.h>
+#include <rcl_http_message.h>
+#include <rcl_http_proxy_settings.h>
+#include <rbl_logger.h>
 
 RAgent::RAgent(const RAgentSettings &settings, QObject *parent)
     : QObject{parent}
@@ -83,7 +83,7 @@ void RAgent::cancelRequest()
     httpClient->abort();
 }
 
-void RAgent::chat(const QString &message)
+void RAgent::chat(const QString &message, const QString &attachedFileId, const QString &attachedFileMimeType)
 {
     if (message.isEmpty())
     {
@@ -97,7 +97,14 @@ void RAgent::chat(const QString &message)
         return;
     }
 
+    if (!attachedFileId.isEmpty() && this->settings.getType() != RAgentSettings::Type::Anthropic)
+    {
+        RLogger::warning("[RAgent] File attachments are only supported for the Anthropic agent type; ignoring attachment.\n");
+    }
+
     pendingMessage = message;
+    pendingAttachedFileId = (this->settings.getType() == RAgentSettings::Type::Anthropic) ? attachedFileId : QString();
+    pendingAttachedFileMimeType = attachedFileMimeType;
     remainingRetries = this->settings.getRetryCount();
     QTimer::singleShot(0, this, [this]() {
         sendRequest(pendingMessage);
@@ -147,8 +154,31 @@ void RAgent::sendRequest(const QString &message)
         }
 
         QJsonObject userMessage;
-        userMessage[QStringLiteral("role")]    = QStringLiteral("user");
-        userMessage[QStringLiteral("content")] = message;
+        userMessage[QStringLiteral("role")] = QStringLiteral("user");
+        if (this->settings.getType() == RAgentSettings::Type::Anthropic && !pendingAttachedFileId.isEmpty())
+        {
+            // Reference a file uploaded via the Anthropic Files API. The file
+            // block is placed before the text block as recommended by the API.
+            QJsonObject fileSource;
+            fileSource[QStringLiteral("type")]    = QStringLiteral("file");
+            fileSource[QStringLiteral("file_id")] = pendingAttachedFileId;
+
+            QJsonObject fileBlock;
+            fileBlock[QStringLiteral("type")] = pendingAttachedFileMimeType.startsWith(QStringLiteral("image/"))
+                                                    ? QStringLiteral("image")
+                                                    : QStringLiteral("document");
+            fileBlock[QStringLiteral("source")] = fileSource;
+
+            QJsonObject textBlock;
+            textBlock[QStringLiteral("type")] = QStringLiteral("text");
+            textBlock[QStringLiteral("text")] = message;
+
+            userMessage[QStringLiteral("content")] = QJsonArray{fileBlock,textBlock};
+        }
+        else
+        {
+            userMessage[QStringLiteral("content")] = message;
+        }
         messages.append(userMessage);
 
         body[QStringLiteral("messages")] = messages;
@@ -190,6 +220,11 @@ void RAgent::sendRequest(const QString &message)
         else
         {
             headers.append("Authorization", QByteArrayLiteral("Bearer ") + this->settings.getApiKey().toUtf8());
+        }
+        if (!pendingAttachedFileId.isEmpty())
+        {
+            // Referencing a Files API file requires the beta opt-in header.
+            headers.append("anthropic-beta", QByteArrayLiteral("files-api-2025-04-14"));
         }
     }
 
@@ -393,6 +428,8 @@ void RAgent::sendRequest(const QString &message)
 
     if (this->settings.getType() != RAgentSettings::Type::OpenAI)
     {
+        // History keeps the plain text only; an attached file is referenced
+        // solely in the turn it was sent with.
         QJsonObject userEntry;
         userEntry[QStringLiteral("role")]    = QStringLiteral("user");
         userEntry[QStringLiteral("content")] = pendingMessage;

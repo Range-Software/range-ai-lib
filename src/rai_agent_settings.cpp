@@ -12,7 +12,7 @@ RAgentSettings::RAgentSettings(Type type)
     {
         case Type::Anthropic:
             this->apiUrl = QStringLiteral("https://api.anthropic.com/v1/messages");
-            this->model = QStringLiteral("claude-sonnet-4-6");
+            this->model = QStringLiteral("claude-sonnet-5");
             break;
         case Type::OpenAILegacy:
             this->apiUrl = QStringLiteral("https://api.openai.com/v1/chat/completions");
