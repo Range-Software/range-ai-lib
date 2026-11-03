@@ -18,6 +18,7 @@
 
 const qint64 RAgentFileStore::defaultMaxStorageSize = 100LL * 1024 * 1024 * 1024;
 const qint64 RAgentFileStore::maxRemoteFileSize = 500LL * 1024 * 1024;
+const qint64 RAgentFileStore::remoteFilesCacheTtlSecs = 300;
 
 RAgentFileStore::RAgentFileStore(const RAgentSettings &settings)
     : settings{settings}
@@ -30,6 +31,7 @@ void RAgentFileStore::setSettings(const RAgentSettings &settings)
 {
     QMutexLocker locker(&this->mutex);
     this->settings = settings;
+    this->invalidateRemoteFilesCache();
 }
 
 void RAgentFileStore::setMaxStorageSize(qint64 maxStorageSize)
@@ -48,7 +50,52 @@ void RAgentFileStore::setIndexFileName(const QString &indexFileName)
 QString RAgentFileStore::ensureFileUploaded(const QString &key, const QString &fileName, const QByteArray &content, const QString &mimeType)
 {
     QMutexLocker locker(&this->mutex);
+    try
+    {
+        return this->ensureFileUploadedLocked(key,fileName,content,mimeType);
+    }
+    catch (...)
+    {
+        // The remote state is unknown after a failed operation.
+        this->invalidateRemoteFilesCache();
+        throw;
+    }
+}
 
+void RAgentFileStore::invalidateRemoteFileListing()
+{
+    // Must not wait for the mutex, which is held during network transfers.
+    this->remoteFilesListingInvalidated = true;
+}
+
+QList<RAgentFileStore::RemoteFile> RAgentFileStore::cachedRemoteFiles()
+{
+    const QDateTime now = QDateTime::currentDateTimeUtc();
+    if (this->remoteFilesListingInvalidated.exchange(false) ||
+        !this->remoteFilesListedAt.isValid() || this->remoteFilesListedAt.secsTo(now) >= RAgentFileStore::remoteFilesCacheTtlSecs)
+    {
+        this->remoteFilesCache = this->listRemoteFiles();
+        this->remoteFilesListedAt = now;
+    }
+    return this->remoteFilesCache;
+}
+
+void RAgentFileStore::updateRemoteFilesCache(const QList<RemoteFile> &remoteFiles)
+{
+    if (this->remoteFilesListedAt.isValid())
+    {
+        this->remoteFilesCache = remoteFiles;
+    }
+}
+
+void RAgentFileStore::invalidateRemoteFilesCache()
+{
+    this->remoteFilesCache.clear();
+    this->remoteFilesListedAt = QDateTime();
+}
+
+QString RAgentFileStore::ensureFileUploadedLocked(const QString &key, const QString &fileName, const QByteArray &content, const QString &mimeType)
+{
     if (this->settings.getType() != RAgentSettings::Type::Anthropic)
     {
         throw RError(RError::Application,R_ERROR_REF,"Remote file store is only available for the Anthropic agent type.");
@@ -71,7 +118,9 @@ QString RAgentFileStore::ensureFileUploaded(const QString &key, const QString &f
 
     const QString sha256 = QString::fromLatin1(QCryptographicHash::hash(content,QCryptographicHash::Sha256).toHex());
 
-    QList<RemoteFile> remoteFiles = this->listRemoteFiles();
+    // Re-use a recent listing: a query on an already uploaded file then needs
+    // no request to the file store at all.
+    QList<RemoteFile> remoteFiles = this->cachedRemoteFiles();
 
     auto remoteFileExists = [&remoteFiles](const QString &remoteFileId)
     {
@@ -121,6 +170,13 @@ QString RAgentFileStore::ensureFileUploaded(const QString &key, const QString &f
     this->makeRoom(remoteFiles,content.size());
 
     const QString remoteFileId = this->uploadFile(fileName,content,mimeType);
+
+    RemoteFile uploadedFile;
+    uploadedFile.id = remoteFileId;
+    uploadedFile.sizeBytes = content.size();
+    uploadedFile.createdAt = QDateTime::currentDateTimeUtc();
+    remoteFiles.append(uploadedFile);
+    this->updateRemoteFilesCache(remoteFiles);
 
     IndexEntry entry;
     entry.remoteFileId = remoteFileId;

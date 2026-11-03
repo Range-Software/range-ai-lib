@@ -7,6 +7,8 @@
 #include <QList>
 #include <QMap>
 #include <QMutex>
+
+#include <atomic>
 #include <QString>
 
 #include "rai_agent_settings.h"
@@ -62,6 +64,12 @@ class RAgentFileStore
         QMutex mutex;
         //! Whether the index file has been loaded.
         bool indexLoaded;
+        //! Last known content of the remote store (valid while remoteFilesListedAt is recent).
+        QList<RemoteFile> remoteFilesCache;
+        //! When remoteFilesCache was last fetched from the API (invalid = no cache).
+        QDateTime remoteFilesListedAt;
+        //! Set by invalidateRemoteFileListing() without taking the mutex.
+        std::atomic<bool> remoteFilesListingInvalidated{false};
 
     public:
 
@@ -69,6 +77,8 @@ class RAgentFileStore
         static const qint64 defaultMaxStorageSize;
         //! Anthropic per-file size limit (500 MB).
         static const qint64 maxRemoteFileSize;
+        //! How long the remote file listing is re-used before it is fetched again.
+        static const qint64 remoteFilesCacheTtlSecs;
 
         //! Constructor.
         explicit RAgentFileStore(const RAgentSettings &settings);
@@ -91,14 +101,33 @@ class RAgentFileStore
         //!
         //! If the key is already indexed and the remote file still exists with
         //! identical content, only the access time is refreshed. If the content
-        //! differs the remote file is replaced. Before every upload the remote
+        //! differs the remote file is replaced. The remote file listing used for
+        //! these checks is re-used for remoteFilesCacheTtlSecs. Before every upload the remote
         //! usage is checked against the configured capacity and files with the
         //! oldest access time are deleted until the new file fits.
         //!
         //! Returns the Anthropic file id. Throws RError on failure.
         QString ensureFileUploaded(const QString &key, const QString &fileName, const QByteArray &content, const QString &mimeType);
 
+        //! Forget the cached remote file listing, so the next call to
+        //! ensureFileUploaded() verifies the remote store again. Call it when a
+        //! request referencing an uploaded file fails (the file may have been
+        //! removed from the remote store by someone else). Never blocks.
+        void invalidateRemoteFileListing();
+
     private:
+
+        //! Body of ensureFileUploaded(); called with the mutex held.
+        QString ensureFileUploadedLocked(const QString &key, const QString &fileName, const QByteArray &content, const QString &mimeType);
+
+        //! Return the remote file listing, fetching it only when the cached one is missing or expired.
+        QList<RemoteFile> cachedRemoteFiles();
+
+        //! Store the remote file listing after local changes (keeps its fetch time).
+        void updateRemoteFilesCache(const QList<RemoteFile> &remoteFiles);
+
+        //! Drop the cached remote file listing.
+        void invalidateRemoteFilesCache();
 
         //! Load the index from the index file (once).
         void loadIndex();
